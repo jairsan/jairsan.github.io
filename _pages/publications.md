@@ -5,9 +5,8 @@ permalink: /publications/
 author_profile: true
 ---
 
-{% if author.googlescholar %}
-  You can also find my articles on <u><a href="{{author.googlescholar}}">my Google Scholar profile</a>.</u>
-{% endif %}
+This list highlights what I believe are my most relevant publications. You can 
+find the full list on <u><a href="{{site.author.googlescholar}}">my Google Scholar profile</a>.</u>
 
 {% include base_path %}
 
