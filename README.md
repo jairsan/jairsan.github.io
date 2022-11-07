@@ -5,7 +5,7 @@ A Github Pages template for academic websites. This was forked (then detached) b
 sudo apt-get install ruby-full
 sudo gem install bundler
 #run the following command inside the repo
-sudo bundle install
+bundle install
 ```
 
 # Usage
