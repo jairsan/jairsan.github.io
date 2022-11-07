@@ -5,8 +5,8 @@ permalink: /publications/
 author_profile: true
 ---
 
-This list highlights what I believe are my most relevant publications. You can 
-find the full list on <u><a href="{{site.author.googlescholar}}">my Google Scholar profile</a>.</u>
+This list highlights my most relevant publications that make up the bulk of the work carried out during my PhD. You can 
+find my full publication list on <u><a href="{{site.author.googlescholar}}">my Google Scholar profile</a>.</u>
 
 {% include base_path %}
 
