@@ -1,5 +1,5 @@
 ---
-title: 'Introduction'
+title: 'An introduction to Speech Translation Evaluation'
 date: 2022-11-11
 permalink: /posts/2012/08/blog-post-1/
 tags:
@@ -8,25 +8,21 @@ tags:
 ---
   
 # Introduction
-TODO change asr model to https://huggingface.co/facebook/wav2vec2-large-960h-lv60 and rerun
-
 Welcome to the first technical blog post of this page. The goal of this post is to provide a general overview of the evaluation process
-for a standard Speech Translation (ST) setup. We will take as a starting point an already trained ASR, as well as an MT one,
-and we will run both inference and evaluation with them. The goal will be to highlight the differences of the ST
-setup with the standard MT scenario. For this, we will focus on English to Spanish translation, using the test set
-of the Europarl-ST corpus.
+for a standard Speech Translation (ST) setup. For simplicity, we are going to use pre-trained ASR and MT models instead
+of training our own. The focus will be to highlight the differences of the ST
+setup with the standard MT scenario. For this, we will evaluate English to Spanish translation, using the Europarl-ST test set.
 
-The actual models used on this post are simple pre-trained models, and there are many ways the results could be
-improved, both in terms of quality and efficiency. In fact, the actual quality results are quite mediocre, but this System performance is not the topic of this blog post, please refer to Appendix A for more information on this.
+There are many improvements that could be applied to this setup, both in terms of quality and efficiency, but this
+is not today's focus. Please refer to Appendix A for a more in-depth discussion about this.
 
-All the files used for this blog post are available at: https://github.com/jairsan/jairsan_web_experiments/tree/main/2022-11-11_st_system_evaluation
+All the files used for this blog post are available at the [jairsan_web_experiments repo](https://github.com/jairsan/jairsan_web_experiments/tree/main/2022-11-11_st_system_evaluation) 
 
-# Segmentation
+# Speech Translation Evaluation 
 
-## Setup
-
-I created a conda environment using this https://github.com/jairsan/jairsan_web_experiments/blob/main/2022-11-11_st_system_evaluation/environment.yml,
-which is the one reccomended by SHAS but using CUDA 11 instead of CUDA 10. Then I installed the other software dependencies.
+# Setup
+I created a conda environment using this [environment.yml](https://github.com/jairsan/jairsan_web_experiments/blob/main/2022-11-11_st_system_evaluation/environment.yml),
+which is the one reccomended by SHAS but with CUDA 10 replaced by CUDA 11. Then I installed the other software dependencies:
 ```shell 
 conda env create -f environment.yml
 conda activate shas
@@ -37,25 +33,79 @@ cd Stream-level_Latency_Evaluation_for_Simultaneous_Machine_Translation/
 pip install .
 ```
 
-You also need to download the pretrained english SHAS model, and the Europarl-ST data.
+You will also need to download the pretrained English SHAS model, and the Europarl-ST data.
 
 ```shell 
-#Manually download https://drive.google.com/u/0/uc?export=download&confirm=DOjP&id=1Y7frjVkB_85snZYHTn0PQQG_kC5afoYN
+#Manually download SHAS English model: https://drive.google.com/u/0/uc?export=download&confirm=DOjP&id=1Y7frjVkB_85snZYHTn0PQQG_kC5afoYN
 wget https://mllp.upv.es/europarl-st/v1.1.tar.gz
 tar xvzf v1.1.tar.gz
 ```
 
+We are then going to downsample the audio to 16KHz, which is a requirement of the segmentation model.
+
+```shell
+BASE_DIR=$PWD/v1.1/
+src=en
+tgt=es
+set=test
+
+mkdir -p data_"$set"_raw
+
+cat $BASE_DIR/$src/$tgt/$set/speeches.lst | while read speech;
+do
+    ffmpeg -i $BASE_DIR/$src/audios/$speech.m4a -nostdin -ac 1 -ar 16000 -hide_banner -loglevel error data_"$set"_raw/$speech.wav
+done
+```
+
+# Segmentation
+We are going to use [SHAS](https://github.com/mt-upc/SHAS) in order to segment the raw audio into chunks/segments. Each
+segment will then be transcribed and translated independently from the others.
+
+```shell
+AUDIO_LOC=$PWD/data_test_raw
+SHAS_ROOT=$PWD/SHAS
+out_folder=$PWD/data_test_segmented
+path_to_wavs=$AUDIO_LOC/
+
+set=test
+maxlen=10;
+path_to_custom_segmentation_yaml=$out_folder/maxlen"$maxlen"_segmentation.yaml
+
+thres=0.3
+
+python3 ${SHAS_ROOT}/src/supervised_hybrid/segment.py \
+  -wavs $path_to_wavs \
+  -yaml $path_to_custom_segmentation_yaml \
+  --dac_threshol $thres \
+  -ckpt en_sfc_model_epoch-6.pt \
+  -max $maxlen
+```
+
+This will produce a .yaml file containing the information of the segments detected by SHAS.
+```shell
+$ head -n 5 data_test_segmented/maxlen10_segmentation.yaml
+[{duration: 3.9439, offset: 0.2402, rW: 0, speaker_id: NA, uW: 0, wav: en.20080924.31.3-249.wav},
+  {duration: 9.3493, offset: 4.6446, rW: 0, speaker_id: NA, uW: 0, wav: en.20080924.31.3-249.wav},
+  {duration: 2.4224, offset: 14.4545, rW: 0, speaker_id: NA, uW: 0, wav: en.20080924.31.3-249.wav},
+  {duration: 8.0881, offset: 17.2573, rW: 0, speaker_id: NA, uW: 0, wav: en.20080924.31.3-249.wav},
+  {duration: 9.9499, offset: 25.9459, rW: 0, speaker_id: NA, uW: 0, wav: en.20080924.31.3-249.wav},
+```
+
 # Transcription
+We will now transcribe the segments using a Wav2Vec2 model finetuned on LibriSpeech, which is a standard
+benchmark for ASR systems. We are going to prepare a transcribe.py with the following content:
 ```python
 import sys
 import yaml
-from transformers import Speech2TextForConditionalGeneration, Speech2TextProcessor
+import torch
+from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 import librosa
 
-def transcribe(segmentation_yaml:str, model_name:str, audio_folder:str):
 
-    model = Speech2TextForConditionalGeneration.from_pretrained("facebook/" + model_name).to("cuda")
-    processor = Speech2TextProcessor.from_pretrained("facebook/" + model_name, do_upper_case=False)
+def transcribe(segmentation_yaml:str, audio_folder:str):
+
+    model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-large-960h-lv60").to("cuda")
+    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-large-960h-lv60", do_upper_case=False)
 
     with open(segmentation_yaml) as segmentation_file:
         items = yaml.safe_load(segmentation_file)
@@ -63,49 +113,99 @@ def transcribe(segmentation_yaml:str, model_name:str, audio_folder:str):
             audio_file = audio_folder + "/" + segment["wav"]
             waveform, _ = librosa.load(audio_file, sr=16000, offset=segment["offset"], duration=segment["duration"])
             features = processor(waveform, sampling_rate=16000, padding=True, return_tensors="pt")
-            input_features = features.input_features.to("cuda")
-            attention_mask = features.attention_mask.to("cuda")
+            features = {key: value.to("cuda") for key, value in features.items()}
 
-            gen_tokens = model.generate(input_ids=input_features, attention_mask=attention_mask)
-            transcription = processor.batch_decode(gen_tokens, skip_special_tokens=True)
+            logits = model(**features).logits
 
-            print(transcription[0])
+            predicted_ids = torch.argmax(logits, dim=-1)
+            transcription = processor.batch_decode(predicted_ids)
+            # LS transcriptions are uppercase, so we lowercase
+            print(transcription[0].lower())
+
 
 if __name__ == "__main__":
-    transcribe(sys.argv[1], sys.argv[2], sys.argv[3])    
+    transcribe(sys.argv[1], sys.argv[2])    
 ```
+
+```shell
+$ python3 transcribe.py data_test_segmented/maxlen10_segmentation.yaml data_test_raw > data_test_transcribed
+$ head -n 5 data_test_transcribed 
+is only greed euphoria and cheap money to be blamed for the whole mess
+what about the flaws of the region at an distribumata which has inhansed systemac risk what about scewed paste cims with the lack of affects which have stimulated reckless ristaking
+what about investment great values assigned to trash
+at about comflicts of interest what aot banks engaging in casino type transactions what about the shadow banking sector withis extreme laveraging and speculations
+why haven't policy make it learn from previous crises those stern warnings were sent just t remember what lumfa lucy gramlick folker buff had said years ago
+```
+
+The transcriptions are not particularly great, but we now have obtained sentences that can be translated by the MT model.
 # Translation
+This step is the same as in the standard MT case. We take the transcriptions as input sentences and 
+generate the translations, using the M2M100 model and the following translate.py file:
 ```python
 import sys
-import yaml
-from transformers import Speech2TextForConditionalGeneration, Speech2TextProcessor
-import librosa
+from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 
-def transcribe(segmentation_yaml:str, model_name:str, audio_folder:str):
 
-    model = Speech2TextForConditionalGeneration.from_pretrained("facebook/" + model_name).to("cuda")
-    processor = Speech2TextProcessor.from_pretrained("facebook/" + model_name, do_upper_case=False)
+def translate():
+    model = M2M100ForConditionalGeneration.from_pretrained("facebook/m2m100_1.2B").to("cuda")
+    tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_1.2B", src_lang="en")
+    for line in sys.stdin:
+        input_words = line.strip().split()
+        if len(input_words) == 0:
+            print("")
+        else:
+            inputs = tokenizer(line, return_tensors="pt")
+            translated_tokens = model.generate(input_ids=inputs["input_ids"].to("cuda"),
+                                               attention_mask=inputs["attention_mask"].to("cuda"),
+                                               forced_bos_token_id=tokenizer.lang_code_to_id["es"])
+            print(tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0])
 
-    with open(segmentation_yaml) as segmentation_file:
-        items = yaml.safe_load(segmentation_file)
-        for segment in items:
-            audio_file = audio_folder + "/" + segment["wav"]
-            waveform, _ = librosa.load(audio_file, sr=16000, offset=segment["offset"], duration=segment["duration"])
-            features = processor(waveform, sampling_rate=16000, padding=True, return_tensors="pt")
-            input_features = features.input_features.to("cuda")
-            attention_mask = features.attention_mask.to("cuda")
-
-            gen_tokens = model.generate(input_ids=input_features, attention_mask=attention_mask)
-            transcription = processor.batch_decode(gen_tokens, skip_special_tokens=True)
-
-            print(transcription[0])
 
 if __name__ == "__main__":
-    transcribe(sys.argv[1], sys.argv[2], sys.argv[3])    
+    translate()
 ```
+
+```shell
+$ cat data_test_transcribed | python3 translate.py > data_test_translated
+$ head -n 5  data_test_translated
+Sólo la avaricia eufórica y el dinero barato son culpables de toda la confusión.
+¿Qué hay de los defectos de la región en un distribuumata que ha inhansed sistemaac riesgo ¿qué hay de las cimas de pasta esguiladas con la falta de efectos que han estimulado ristaking imprudente
+¿Qué pasa con los grandes valores de inversión asignados a la basura?
+En cuanto a los conflictos de intereses ¿Qué son los bancos que se involucran en las transacciones de tipo casino ¿Qué es el sector bancario de sombra? ¿Qué es la especulación y la especulación extrema?
+¿Por qué la política no ha hecho que aprenda de las crisis anteriores que las advertencias severas fueron enviadas sólo no recuerda lo que Lumfa lucy gramlick folker buff había dicho hace años
+```
+
 
 # Evaluation
+This evaluation strategy was proposed by Evgeny Matusov and other i6 researchers in a [2005 IWSLT paper](https://aclanthology.org/2005.iwslt-1.19/), it is
+now the standard evaluation setup used in Speech Translation, including the IWSLT yearly competition. Traditionally, this resegmentation step
+was done using the [mwerSegmenter binary](https://www-i6.informatik.rwth-aachen.de/web/Software/mwerSegmenter.tar.gz).
 
-## Appendix A: General Improvements
+Earlier this year, Apptek researchers released a Python implementation of minimum-edit-distante re-alignment as part of
+the [SubER software](https://github.com/apptek/SubER), which I find to be more practical and robust than the MWER binary.
+I have integrated this into the software of my [EMNLP 2021 Findings paper](https://github.com/jairsan/Stream-level_Latency_Evaluation_for_Simultaneous_Machine_Translation),
+which is what we will be using today. The resegmentation procedure is implemented with the ```stream_resegment``` command.
+```shell
+stream_resegment [-h] --hypo_file HYPO_FILE --reference_file REFERENCE_FILE [--output_file OUTPUT_FILE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --hypo_file HYPO_FILE
+                        File to be resegmented, contains the system hypothesis.
+  --reference_file REFERENCE_FILE
+                        Reference file to be used for resegmentation. The output will be segmented into the same number of lines as this file.
+  --output_file OUTPUT_FILE
+                        If set, the resegmented output is stored on this file instead of stdout.
+```
+
+```shell
+$ stream_resegment --hypo_file data_test_translated --reference_file v1.1/en/es/test/segments.es | sacrebleu --language-pair en-es v1.1/en/es/test/segments.es
+BLEU+case.mixed+lang.en-es+numrefs.1+smooth.exp+tok.13a+version.1.5.0 = 29.0 61.1/37.8/25.3/17.5 (BP = 0.911 ratio = 0.915 hyp_len = 30596 ref_len = 33441)
+```
+
+The beauty of this approach is that both resegmentation and evaluation is done with a single command, which avoids
+many possible source of error.
+
+## Appendix A: System choice and further improvements
 
 ## Appendix B: Segments vs Speeches
