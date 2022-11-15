@@ -15,3 +15,9 @@ bundle exec jekyll serve
 
 # Content generation
 For publications, see markdown_generator
+
+## Content notes
+Code styles: _sass/_syntax.scss
+
+## Page templates: 
+_layouts. For blog posts, layout: splash fill the whole page

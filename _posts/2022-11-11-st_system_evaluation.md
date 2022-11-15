@@ -1,7 +1,7 @@
 ---
 title: 'An introduction to Speech Translation Evaluation'
 date: 2022-11-11
-permalink: /posts/2012/08/blog-post-1/
+layout: splash
 tags:
   - speech translation
   - evaluation
