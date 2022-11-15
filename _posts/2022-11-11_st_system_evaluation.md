@@ -9,18 +9,49 @@ tags:
   
 # Introduction
 Welcome to the first technical blog post of this page. The goal of this post is to provide a general overview of the evaluation process
-for a standard Speech Translation (ST) setup. For simplicity, we are going to use pre-trained ASR and MT models instead
-of training our own. The focus will be to highlight the differences of the ST
-setup with the standard MT scenario. For this, we will evaluate English to Spanish translation, using the Europarl-ST test set.
+for a standard Speech Translation (ST) setup. The focus will be to highlight the differences of the ST
+setup with the standard MT scenario.
+
+I will first present a general overview of ST evaluation and it's challenges, and then move into a practical example
+of how to conduct it. For simplicity, we are going to use pre-trained ASR and MT models instead
+of training our own. For this, we will evaluate English to Spanish translation, using the Europarl-ST test set.
 
 There are many improvements that could be applied to this setup, both in terms of quality and efficiency, but this
-is not today's focus. Please refer to Appendix A for a more in-depth discussion about this.
+is not today's focus. Please refer to [Appendix A](#ap1) for a more in-depth discussion about model choice and general improvements.
 
 All the files used for this blog post are available at the [jairsan_web_experiments repo](https://github.com/jairsan/jairsan_web_experiments/tree/main/2022-11-11_st_system_evaluation) 
 
 # Speech Translation Evaluation 
+When working with standard academic datasets (MuST-C and Europarl-ST are the most popular choices), ST can be approached as a standard MT task that has pre-computed source audio segments instead
+of source sentences. You can then run ASR inference for each segment, and feed the transcription to the MT system. Because
+each audio sample is paired with a reference translation, sacrebleu can be directly run with the system hypothesis and the only
+difference with the standard MT case would be the addition of the ASR system. 
 
-# Setup
+However, in the real world, we do not have the luxury of pre-computed, gold-standard segmentation, and instead our system
+receives as input the whole unsegmented audio signal. Standard ASR and MT systems are trained to perform inference over short audio segments
+or sentences instead of unbounded streams. Thus, when running realistic experiments, we have to incorporate
+a segmentation step into the pipeline, which must produce segments that are similar to those used during system training.
+Research has shown that this is a critical step that has significant impacts on translation quality. 
+
+Furthermore, the segmentation step will almost surely produce a different number of segments than reference sentences,
+so we cannot directly evaluate our hypothesis. Even if by some freak coincidence the same number of segments were produced,
+the contents between the n-th hypothesis segment and the n-th reference segment will surely be different. The following image, adapted from the [EACL 2021 tutorial on Speech Translation](https://aclanthology.org/2021.eacl-tutorials.3/), illustrates this fact. 
+
+![Speech Translation Evaluation, adapted from Niehues 2021](/images/st_evaluation.png)
+
+You can see how our segmenter model produced 5 segments/sentences, but the reference contains 3 sentences. On this example,
+the ST system is very good and produced a perfect translation, but in the real world the ST system would
+have produced an imperfect translation with no clear alignment between hypothesis and reference. Thus, we are faced
+with the fact that we have: 
+- a hypothesis consisting of n segments/sentences 
+- a reference translation consisting of m segments/sentences, with n!=m
+- no clear mapping between hypothesis and reference
+
+This evaluation strategy was proposed by Evgeny Matusov and other i6 researchers in a [2005 IWSLT paper](https://aclanthology.org/2005.iwslt-1.19/), it is
+now the standard evaluation setup used in Speech Translation, including the IWSLT yearly competition. 
+
+# Practical example
+## Setup
 I created a conda environment using this [environment.yml](https://github.com/jairsan/jairsan_web_experiments/blob/main/2022-11-11_st_system_evaluation/environment.yml),
 which is the one reccomended by SHAS but with CUDA 10 replaced by CUDA 11. Then I installed the other software dependencies:
 ```shell 
@@ -57,7 +88,7 @@ do
 done
 ```
 
-# Segmentation
+## Segmentation
 We are going to use [SHAS](https://github.com/mt-upc/SHAS) in order to segment the raw audio into chunks/segments. Each
 segment will then be transcribed and translated independently from the others.
 
@@ -91,7 +122,7 @@ $ head -n 5 data_test_segmented/maxlen10_segmentation.yaml
   {duration: 9.9499, offset: 25.9459, rW: 0, speaker_id: NA, uW: 0, wav: en.20080924.31.3-249.wav},
 ```
 
-# Transcription
+## Transcription
 We will now transcribe the segments using a Wav2Vec2 model finetuned on LibriSpeech, which is a standard
 benchmark for ASR systems. We are going to prepare a transcribe.py with the following content:
 ```python
@@ -138,7 +169,7 @@ why haven't policy make it learn from previous crises those stern warnings were 
 ```
 
 The transcriptions are not particularly great, but we now have obtained sentences that can be translated by the MT model.
-# Translation
+##  Translation
 This step is the same as in the standard MT case. We take the transcriptions as input sentences and 
 generate the translations, using the M2M100 model and the following translate.py file:
 ```python
@@ -176,11 +207,10 @@ En cuanto a los conflictos de intereses ¿Qué son los bancos que se involucran 
 ```
 
 
-# Evaluation
-This evaluation strategy was proposed by Evgeny Matusov and other i6 researchers in a [2005 IWSLT paper](https://aclanthology.org/2005.iwslt-1.19/), it is
-now the standard evaluation setup used in Speech Translation, including the IWSLT yearly competition. Traditionally, this resegmentation step
-was done using the [mwerSegmenter binary](https://www-i6.informatik.rwth-aachen.de/web/Software/mwerSegmenter.tar.gz).
+##  Evaluation
 
+Traditionally, this resegmentation step
+was done using the [mwerSegmenter binary](https://www-i6.informatik.rwth-aachen.de/web/Software/mwerSegmenter.tar.gz).
 Earlier this year, Apptek researchers released a Python implementation of minimum-edit-distante re-alignment as part of
 the [SubER software](https://github.com/apptek/SubER), which I find to be more practical and robust than the MWER binary.
 I have integrated this into the software of my [EMNLP 2021 Findings paper](https://github.com/jairsan/Stream-level_Latency_Evaluation_for_Simultaneous_Machine_Translation),
@@ -204,8 +234,22 @@ BLEU+case.mixed+lang.en-es+numrefs.1+smooth.exp+tok.13a+version.1.5.0 = 29.0 61.
 ```
 
 The beauty of this approach is that both resegmentation and evaluation is done with a single command, which avoids
-many possible source of error.
+many possible sources of error.
 
-## Appendix A: System choice and further improvements
+## Appendix A: System choice and further improvements {#ap1}
+Note that there are also End-to-End ST models
+that skip the ASR step and produce the translation from the original audio. At the time of writing this post,
+their performance is
+on-par with the cascaded ASR+MT approach, so that is why I elected to use the classical approach.
 
-## Appendix B: Segments vs Speeches
+The LS ASR system used in this posts is not the best when it comes to transcribing parliamentary speeches, but I selected
+it because there is no overlap between the training and test data. Additional fine-tuning with in-domain data (Europarl-ST)
+train, or decoding with an in-domain LM would probably improve transcription quality substantially.
+
+Unfortunately, the M2M model has been trained 
+using Common Crawl data, which probably includes the European Parliament website from which Europarl-ST was constructed.
+I was not able to find any other publicly available model for which I know with 100% certainty that it does not 
+include Europarl-ST, so I begrudgingly ended up using M2M. I might look further into this issue in the future, but for
+now it falls outside the scope of this blog post.
+
+The transcription/translation is not using batched inference, which would singificantly decrease inference time.
