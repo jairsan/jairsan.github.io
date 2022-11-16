@@ -13,7 +13,8 @@ for a standard Speech Translation (ST) setup. The focus will be to highlight the
 setup with the standard Machine Translation (MT) scenario. Thus, the reader should have some basic MT knowledge in order to
 follow along.
 
-This blog post consits in two Sections. [Section 1](#part1) presents a general overview of ST evaluation and the challenges.
+This blog post consists in two Sections. [Section 1](#part1) presents a general overview of ST evaluation and
+the challenges
 of how to conduct it. [Section 2](#part2) presents a practical example of ST evaluation.
 For simplicity, we are going to use pre-trained Automatic Speech Recognition (ASR) and MT models instead
 of training our own. For this, we will evaluate English to Spanish translation, using the Europarl-ST test set.
@@ -42,8 +43,8 @@ The following image, adapted from the [EACL 2021 tutorial on Speech Translation]
 
 ![Speech Translation Evaluation, adapted from Niehues 2021](/images/st_evaluation.png)
 
-You can see how our segmenter model produced 5 segments/sentences, but the reference contains 3 sentences. On this example,
-the ST system is very good and produced a perfect translation, but in the real world the ST system would
+You can see how our ST system produced 5 segments/sentences, but the reference contains 3 sentences. On this example,
+the ST system produced a perfect translation, but in the real world the ST system would
 have produced an imperfect translation with no clear alignment between hypothesis and reference. Thus, we are faced
 with the fact that we have: 
 - a hypothesis consisting of *n* segments/sentences 
@@ -55,13 +56,13 @@ into the same number of segments as the reference. This is done by computing a w
 reference that minimizes the Levenshtein edit distance at the word level. If the quality of the hypothesis is acceptable,
 this strategy finds segment boundaries for the hypothesis that match very well with those of the reference.
 
-This evaluation strategy was proposed by i6 researchers in a [2005 IWSLT paper](https://aclanthology.org/2005.iwslt-1.19/), and it has become
+This evaluation strategy was proposed at i6 in a [2005 IWSLT paper](https://aclanthology.org/2005.iwslt-1.19/), and it has become
 the standard evaluation setup used in Speech Translation, including the IWSLT yearly competition. 
 
 # Practical example {#part2}
 ## Setup
 I created a conda environment using this [environment.yml](https://github.com/jairsan/jairsan_web_experiments/blob/main/2022-11-11_st_system_evaluation/environment.yml),
-which is the one reccomended by SHAS but with CUDA 10 replaced by CUDA 11. Then I installed the other software dependencies:
+which is the one included with SHAS, but with CUDA 10 replaced by CUDA 11. Then I installed the other software dependencies:
 ```shell 
 conda env create -f environment.yml
 conda activate shas
@@ -98,7 +99,7 @@ done
 
 ## Segmentation
 We are going to use [SHAS](https://github.com/mt-upc/SHAS) in order to segment the raw audio into chunks/segments. Each
-segment will then be transcribed and translated independently from the others.
+segment will then be transcribed and translated independently of the others.
 
 ```shell
 AUDIO_LOC=$PWD/data_test_raw
@@ -217,9 +218,9 @@ En cuanto a los conflictos de intereses ¿Qué son los bancos que se involucran 
 ##  Re-segmentation and evaluation
 Traditionally, the resegmentation step
 was done using the [mwerSegmenter binary](https://www-i6.informatik.rwth-aachen.de/web/Software/mwerSegmenter.tar.gz).
-Earlier this year, Apptek researchers released a Python implementation of minimum-edit-distante re-alignment as part of
+Earlier this year, researchers at Apptek released a Python implementation of minimum-edit-distance re-alignment as part of
 the [SubER software](https://github.com/apptek/SubER), which I find to be more practical and robust than the MWER binary.
-I have integrated this into the software of my [EMNLP 2021 Findings paper](https://github.com/jairsan/Stream-level_Latency_Evaluation_for_Simultaneous_Machine_Translation),
+I have integrated this implementation into the software of my [EMNLP 2021 Findings paper](https://github.com/jairsan/Stream-level_Latency_Evaluation_for_Simultaneous_Machine_Translation),
 which is what we will be using today. The resegmentation procedure is implemented with the ```stream_resegment``` command.
 ```shell
 stream_resegment [-h] --hypo_file HYPO_FILE --reference_file REFERENCE_FILE [--output_file OUTPUT_FILE]
@@ -256,15 +257,21 @@ BLEU+case.mixed+lang.en-es+numrefs.1+smooth.exp+tok.13a+version.1.5.0 = 29.0 61.
 ```
 
 # Conclusions
+ST presents a particular set of challenges that must be addressed. Unless one wants to work in an artificial academic
+setting, one should take into account audio segmentation, which is not a trivial matter. Using the right tools
+can address these issues and make your life easier, while at the same time ensuring that you are running a
+realistic evaluation. High quality segmentation can be obtained with SHAS,
+and hypothesis re-segmentation is easy to apply with `stream_resegment`.
 
 ## Appendix A: System choice and further improvements {#ap1}
 Note that there are also End-to-End ST models
 that skip the ASR step and produce the translation from the original audio. At the time of writing this post,
-their performance is
+their quality performance is
 on-par with the cascaded ASR+MT approach, so that is why I elected to use the classical approach.
 
-The LS ASR system used in this posts is not the best when it comes to transcribing parliamentary speeches, but I selected
-it because there is no overlap between the training and test data. Additional fine-tuning with in-domain data (Europarl-ST)
+The LS ASR system used in this post is not the best when it comes to transcribing parliamentary speeches, but I selected
+it because there is no overlap between the training data and the Europarl-ST test data.
+Additional fine-tuning with in-domain data (Europarl-ST)
 train, or decoding with an in-domain LM would probably improve transcription quality substantially.
 
 Unfortunately, the M2M model has been trained 
@@ -273,4 +280,4 @@ I was not able to find any other publicly available model for which I know with 
 include Europarl-ST, so I begrudgingly ended up using M2M. I might look further into this issue in the future, but for
 now it falls outside the scope of this blog post.
 
-The transcription/translation is not using batched inference, which would singificantly decrease inference time.
+The transcription/translation is not using batched inference, which would significantly decrease inference time.
