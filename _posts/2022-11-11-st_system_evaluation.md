@@ -1,6 +1,7 @@
 ---
-title: 'An introduction to Speech Translation Evaluation'
+title: 'An overview of Speech Translation Evaluation'
 date: 2022-11-11
+permalink: /posts/2022/11/st_system_evaluation/
 layout: splash
 tags:
   - speech translation
@@ -13,11 +14,12 @@ for a standard Speech Translation (ST) setup. The focus will be to highlight the
 setup with the standard Machine Translation (MT) scenario. Thus, the reader should have some basic MT knowledge in order to
 follow along.
 
-This blog post consists in two Sections. [Section 1](#part1) presents a general overview of ST evaluation and
+This paper is organized as follows. [Section 1](#part1) presents a general overview of ST evaluation and
 the challenges
 of how to conduct it. [Section 2](#part2) presents a practical example of ST evaluation.
+ For this, we will evaluate English to Spanish translation, using the Europarl-ST test set.
 For simplicity, we are going to use pre-trained Automatic Speech Recognition (ASR) and MT models instead
-of training our own. For this, we will evaluate English to Spanish translation, using the Europarl-ST test set.
+of training our own.
 
 There are many improvements that could be applied to this setup, both in terms of quality and efficiency, but this
 is not today's focus. Please refer to [Appendix A](#ap1) for a more in-depth discussion about model choice and general improvements.
@@ -41,7 +43,7 @@ so we cannot directly evaluate our hypothesis. Even if by some freak coincidence
 the contents of the *n*-th hypothesis segment and the *n*-th reference segment will surely be different.
 The following image, adapted from the [EACL 2021 tutorial on Speech Translation](https://aclanthology.org/2021.eacl-tutorials.3/), illustrates this fact. 
 
-![Speech Translation Evaluation, adapted from Niehues 2021](/images/st_evaluation.png)
+![Speech Translation Evaluation, adapted from Niehues 2021](/images/my_images/st_evaluation.png)
 
 You can see how our ST system produced 5 segments/sentences, but the reference contains 3 sentences. On this example,
 the ST system produced a perfect translation, but in the real world the ST system would
@@ -51,10 +53,16 @@ with the fact that we have:
 - a reference translation consisting of *m* segments/sentences, with *n* != *m*
 - no clear mapping between hypothesis and reference
 
-A clever way to fix this problem is to carry out re-segmentation of the system hypothesis, by splitting the hypothesis
-into the same number of segments as the reference. This is done by computing a word alignment between hypothesis and
-reference that minimizes the Levenshtein edit distance at the word level. If the quality of the hypothesis is acceptable,
-this strategy finds segment boundaries for the hypothesis that match very well with those of the reference.
+A clever way to fix this problem is to carry out re-segmentation of the system hypothesis, that is, generating a new
+set of *m* segment boundaries for the hypothesis, so that it is split into the same number of segments as the reference.
+This is done by computing a word alignment between hypothesis and
+reference that minimizes the Levenshtein edit distance at the word level. This produces optimal segment boundaries so
+that the content of the new segments better matches those of the reference.
+
+Applying this to the previous example would produce the following 3 segments:
+- This is Signal.
+- In the training data it was split using strong punctuation.
+- Three sentences in total!
 
 This evaluation strategy was proposed at i6 in a [2005 IWSLT paper](https://aclanthology.org/2005.iwslt-1.19/), and it has become
 the standard evaluation setup used in Speech Translation, including the IWSLT yearly competition. 
@@ -73,7 +81,7 @@ cd Stream-level_Latency_Evaluation_for_Simultaneous_Machine_Translation/
 pip install .
 ```
 
-You will also need to download the pretrained English SHAS model, and the Europarl-ST data.
+You will also need to download the pre-trained English SHAS model, and the Europarl-ST data.
 
 ```shell 
 #Manually download SHAS English model: https://drive.google.com/u/0/uc?export=download&confirm=DOjP&id=1Y7frjVkB_85snZYHTn0PQQG_kC5afoYN
@@ -271,8 +279,8 @@ on-par with the cascaded ASR+MT approach, so that is why I elected to use the cl
 
 The LS ASR system used in this post is not the best when it comes to transcribing parliamentary speeches, but I selected
 it because there is no overlap between the training data and the Europarl-ST test data.
-Additional fine-tuning with in-domain data (Europarl-ST)
-train, or decoding with an in-domain LM would probably improve transcription quality substantially.
+Additional fine-tuning with in-domain data (Europarl-ST train set), or adding an in-domain Language Model would 
+improve transcription quality substantially.
 
 Unfortunately, the M2M model has been trained 
 using Common Crawl data, which probably includes the European Parliament website from which Europarl-ST was constructed.
