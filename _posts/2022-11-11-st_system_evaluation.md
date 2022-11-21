@@ -10,11 +10,11 @@ tags:
   
 # Introduction
 Welcome to the first technical blog post of this page. The goal of this post is to provide a general overview of the evaluation process
-for a standard Speech Translation (ST) setup. The focus will be to highlight the differences of the ST
+for a standard Speech Translation (ST) setup. The focus will be on highlighting the differences of the ST
 setup with the standard Machine Translation (MT) scenario. Thus, the reader should have some basic MT knowledge in order to
 follow along.
 
-This paper is organized as follows. [Section 1](#part1) presents a general overview of ST evaluation and
+This post is organized as follows. [Section 1](#part1) presents a general overview of ST evaluation and
 the challenges
 of how to conduct it. [Section 2](#part2) presents a practical example of ST evaluation.
  For this, we will evaluate English to Spanish translation, using the Europarl-ST test set.
@@ -284,8 +284,8 @@ improve transcription quality substantially.
 
 Unfortunately, the M2M model has been trained 
 using Common Crawl data, which probably includes the European Parliament website from which Europarl-ST was constructed.
-I was not able to find any other publicly available model for which I know with 100% certainty that it does not 
-include Europarl-ST, so I begrudgingly ended up using M2M. I might look further into this issue in the future, but for
+I was not able to find any other model whose training data excluded Europarl-ST with 100% certainty,
+so I begrudgingly ended up using M2M. I might look further into this issue in the future, but for
 now it falls outside the scope of this blog post.
 
 The transcription/translation is not using batched inference, which would significantly decrease inference time.
