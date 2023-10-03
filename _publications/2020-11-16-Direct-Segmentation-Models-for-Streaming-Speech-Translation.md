@@ -3,7 +3,7 @@ title: "Direct Segmentation Models for Streaming Speech Translation"
 collection: publications
 permalink: /publication/2020-01-01-Direct-Segmentation-Models-for-Streaming-Speech-Translation
 date: 2020-11-16
-venue: 'EMNLP 2020'
+venue: 'EMNLP'
 ---
 Machine Translation systems are trained with full sentences, but in the Cascaded Speech Translation scenario, the 
 output of the ASR system does not necessarily form sentences, which hampers performance. This publication introduces

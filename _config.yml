@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Javier Iranzo-Sánchez"
 title_separator          : "-"
 name                     : &name "Javier Iranzo-Sánchez"
-description              : &description "PhD Student at Universitat Politecnica de Valencia"
+description              : &description "Applied Scientist at AppTek"
 url                      : https://jairsan.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "jairsan.github.io"
@@ -82,7 +82,7 @@ analytics:
 author:
   name             : "Javier Iranzo-Sánchez"
   avatar           : "profile.jpg"
-  bio              : "PhD Student at UPV"
+  bio              : "Applied Scientist at AppTek"
   location         : "Valencia"
   employer         :
   pubmed           :

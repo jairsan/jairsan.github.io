@@ -3,7 +3,7 @@ title: "Stream-level Latency Evaluation for Simultaneous Machine Translation"
 collection: publications
 permalink: /publication/2021-01-01-Stream-level-Latency-Evaluation-for-Simultaneous-Machine-Translation
 date: 2021-11-16
-venue: 'Findings of EMNLP 2021'
+venue: 'Findings of EMNLP'
 ---
 A reliable evaluation metric is critical for any technical and scientific task. However, the standard simultaneous
 MT latency metrics (AP, AL and DAL) are not robust when applied to the Streaming scenario. This paper studies this phenomenon

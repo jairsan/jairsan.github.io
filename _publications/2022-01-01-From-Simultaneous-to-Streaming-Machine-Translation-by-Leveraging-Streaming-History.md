@@ -3,7 +3,7 @@ title: "From Simultaneous to Streaming Machine Translation by Leveraging Streami
 collection: publications
 permalink: /publication/2022-01-01-From-Simultaneous-to-Streaming-Machine-Translation-by-Leveraging-Streaming-History
 date: 2022-01-01
-venue: 'ACL 2022'
+venue: 'ACL'
 ---
 The Streaming ST scenario presents many challenges, but there are also opportunities that can be used to improve
 translation quality. This work introduces the concept of Streaming history, which holds the information
